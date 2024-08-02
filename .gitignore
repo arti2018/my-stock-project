@@ -1,1 +1,25 @@
-ECHO is on.
+# Ignore virtual environment
+venv/
+
+# Ignore Python bytecode
+*.pyc
+__pycache__/
+
+# Ignore environment-specific files
+*.env
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Ignore macOS-specific files
+.DS_Store
+
+# Ignore Windows-specific files
+Thumbs.db
+
+# Ignore any additional files or directories you don’t want to track
