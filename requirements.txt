@@ -20,5 +20,6 @@ urllib3==2.0.7
 webencodings==0.5.1
 yfinance==0.2.41
 Flask
-python-telegram-bot
+python-telegram-bot==20.0
 python-docx
+
