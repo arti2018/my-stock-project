@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Your Telegram bot token
-TOKEN = 'YOUR_BOT_TOKEN_HERE'
+TOKEN = '7267615183:AAFJUG5jvSw7QMwIXIy-t8qRKRbFcJVju3g'
 
 # Global variables
 questions = []
