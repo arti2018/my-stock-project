@@ -1,8 +1,9 @@
-import asyncio
 import logging
+from flask import Flask, request
 from telegram import Update
-from telegram.ext import Application, CommandHandler, PollAnswerHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, PollAnswerHandler, ContextTypes, Dispatcher
 from docx import Document
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Your Telegram bot token
 TOKEN = '7267615183:AAFJUG5jvSw7QMwIXIy-t8qRKRbFcJVju3g'
+WEBHOOK_URL = 'https://your-render-app-url.com/'  # Replace with your Render app URL
 
 # Global variables
 questions = []
@@ -17,6 +19,9 @@ current_index = 0
 chat_id = None
 periodic_task = None
 correct_answers = {}
+
+# Create Flask app
+app = Flask(__name__)
 
 # Function to extract questions and options from Word file
 def extract_questions_from_word(file_path):
@@ -136,16 +141,30 @@ async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
         else:
             logger.info(f"User {poll_answer.user.id} got the wrong answer.")
 
+# Webhook endpoint for handling Telegram updates
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    update = request.get_json()
+    if update:
+        dispatcher.process_update(Update.de_json(update, application.bot))
+    return 'ok'
+
 # Main function to run the bot
 def main():
+    global dispatcher
+
     application = Application.builder().token(TOKEN).build()
     
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(CommandHandler('next', next))
-    application.add_handler(PollAnswerHandler(handle_poll_answer))
+    dispatcher = Dispatcher(application)
+    dispatcher.add_handler(CommandHandler('start', start))
+    dispatcher.add_handler(CommandHandler('next', next))
+    dispatcher.add_handler(PollAnswerHandler(handle_poll_answer))
 
-    # Run the bot
-    application.run_polling()
+    # Set the webhook for Telegram
+    application.bot.set_webhook(WEBHOOK_URL + '/webhook')
+
+    # Run the Flask app
+    app.run(host='0.0.0.0', port=80)
 
 if __name__ == '__main__':
     main()
