@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from telegram import Update
-from telegram.ext import Application, CommandHandler, PollAnswerHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, PollAnswerHandler, CallbackQueryHandler, ContextTypes
 from docx import Document
 
 # Configure logging
@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Your Telegram bot token
-TOKEN = '7267615183:AAFJUG5jvSw7QMwIXIy-t8qRKRbFcJVju3g'
+TOKEN = 'YOUR_BOT_TOKEN_HERE'
 
 # Global variables
 questions = []
@@ -17,6 +17,7 @@ current_index = 0
 chat_id = None
 periodic_task = None
 correct_answers = {}
+time_interval = 5  # Default time interval in seconds
 
 # Function to extract questions and options from Word file
 def extract_questions_from_word(file_path):
@@ -71,8 +72,8 @@ async def send_questions_periodically(context: ContextTypes.DEFAULT_TYPE) -> Non
             correct_answers[message.poll.id] = correct_option_index
             current_index += 1
         
-        # Wait for 5 seconds before sending the next question
-        await asyncio.sleep(5)  # Adjust time as needed
+        # Wait for the specified time interval before sending the next question
+        await asyncio.sleep(time_interval)
 
     # Stop the periodic task after all questions are sent
     periodic_task = None
@@ -81,20 +82,36 @@ async def send_questions_periodically(context: ContextTypes.DEFAULT_TYPE) -> Non
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global questions, current_index, chat_id, periodic_task
     
+    # Send the message with time interval options
+    keyboard = [
+        [InlineKeyboardButton("5 seconds", callback_data='5')],
+        [InlineKeyboardButton("10 seconds", callback_data='10')],
+        [InlineKeyboardButton("15 seconds", callback_data='15')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Starting the quiz. Please choose the time interval for sending questions:", reply_markup=reply_markup)
+
+# Callback query handler to set the time interval
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global time_interval, questions, current_index, chat_id, periodic_task
+    
+    query = update.callback_query
+    time_interval = int(query.data)
+    chat_id = query.message.chat_id
+    
     # Extract questions from Word file
     questions = extract_questions_from_word('new_formatted_questions.docx')
     
     if questions:
         current_index = 0
-        chat_id = update.message.chat_id
         
         # Start the periodic task
         if periodic_task is None:
             periodic_task = asyncio.create_task(send_questions_periodically(context))
         
-        await update.message.reply_text("Starting to send quiz questions every 5 seconds.")
+        await query.message.reply_text(f"Quiz started. Questions will be sent every {time_interval} seconds.")
     else:
-        await update.message.reply_text("No questions found in the document.")
+        await query.message.reply_text("No questions found in the document.")
 
 # Command handler function to get the next question manually
 async def next(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -144,6 +161,7 @@ def main():
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('next', next))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
+    application.add_handler(CallbackQueryHandler(button))
 
     # Run the bot
     application.run_polling()
