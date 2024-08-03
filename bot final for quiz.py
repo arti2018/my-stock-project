@@ -1,7 +1,6 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, PollAnswerHandler, ContextTypes
 import logging
-import asyncio
 from docx import Document
 
 # Configure logging
@@ -27,7 +26,7 @@ def extract_questions_from_word(file_path):
     for para in doc.paragraphs:
         text = para.text.strip()
         if text:
-            if text.startswith("Q:"):  # Assume questions start with "Q:"
+            if text.startswith("Q:"):
                 if current_question:
                     questions.append(current_question)
                 current_question = {"question": text[2:].strip(), "options": [], "correct_answer": ""}
@@ -56,7 +55,6 @@ async def send_questions_periodically(context: ContextTypes.DEFAULT_TYPE) -> Non
             options = next_question["options"]
             correct_option_index = options.index(next_question["correct_answer"])
             
-            # Send quiz poll
             message = await context.bot.send_poll(
                 chat_id,
                 question=next_question["question"],
@@ -66,28 +64,23 @@ async def send_questions_periodically(context: ContextTypes.DEFAULT_TYPE) -> Non
                 is_anonymous=False
             )
             
-            # Store the correct answer for this poll
             correct_answers[message.poll.id] = correct_option_index
             current_index += 1
         
-        # Wait for 5 seconds before sending the next question
         await asyncio.sleep(3)
 
-    # Stop the periodic task after all questions are sent
     periodic_task = None
 
 # Command handler function to start the bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global questions, current_index, chat_id, periodic_task
     
-    # Extract questions from Word file
     questions = extract_questions_from_word('new_formatted_questions.docx')
     
     if questions:
         current_index = 0
         chat_id = update.message.chat_id
         
-        # Start the periodic task
         if periodic_task is None:
             periodic_task = asyncio.create_task(send_questions_periodically(context))
         
@@ -119,7 +112,6 @@ async def next(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         is_anonymous=False
     )
 
-    # Store the correct answer for this poll
     correct_answers[message.poll.id] = correct_option_index
     current_index += 1
 
@@ -144,7 +136,6 @@ def main():
     application.add_handler(CommandHandler('next', next))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
 
-    # Run the bot
     application.run_polling()
 
 if __name__ == '__main__':
