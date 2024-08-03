@@ -1,9 +1,7 @@
 services:
-  - type: web
-    name: telegram-bot
+  - type: background
+    name: my-telegram-bot
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python bot_final_for_quiz.py
-    plan: free
-    http:
-      port: 80
+    startCommand: python bot final for quiz.py
+    instances: 1
