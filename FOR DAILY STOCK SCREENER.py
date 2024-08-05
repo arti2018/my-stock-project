@@ -677,7 +677,7 @@ def get_in_stock_list():
 indian_stocks = get_in_stock_list()
 
 # Set the desired year to check which stocks touched the S3 level
-desired_year = 2024
+desired_year = 2022
 
 # Get stocks that touched S3 and those with no data for the specified year
 stocks_touching_s3, stocks_with_no_data = check_stocks_touching_s3(indian_stocks, desired_year)
