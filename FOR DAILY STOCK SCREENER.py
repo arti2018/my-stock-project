@@ -1,66 +1,40 @@
+import logging
+import asyncio
+import nest_asyncio
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import Application, CommandHandler, CallbackContext
 import yfinance as yf
-import pandas as pd
 from datetime import datetime
 
-def calculate_fibonacci_pivots(high, low, close):
-    pivot = (high + low + close) / 3
-    range_ = high - low
-    s1 = pivot - (range_ * 0.382)
-    s2 = pivot - (range_ * 0.618)
-    s3 = pivot - (range_ * 1.000)
-    r1 = pivot + (range_ * 0.382)
-    r2 = pivot + (range_ * 0.618)
-    r3 = pivot + (range_ * 1.000)
-    return s1, s2, s3, r1, r2, r3
+# Apply nest_asyncio patch if needed
+nest_asyncio.apply()
 
-def check_stocks_touching_s3(stock_list, year):
-    previous_year = year - 1
-    start_date = datetime(previous_year, 1, 1)
-    end_date = datetime(year, 1, 1)
+# Set up logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    stocks_touching_s3 = []
-    stocks_with_no_data = []
+# Function to create a custom keyboard
+def get_custom_keyboard():
+    keyboard = [
+        [KeyboardButton('/check_stocks')],
+        [KeyboardButton('/help')]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-    for stock in stock_list:
-        try:
-            # Fetch historical data for the previous year
-            data = yf.download(stock, start=start_date, end=end_date, progress=False)
+# Command handler for '/start'
+async def start(update: Update, context: CallbackContext):
+    user = update.effective_user
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"Hello {user.first_name}! Welcome to the Stock Checker Bot. Use the keyboard below to interact with me.",
+        reply_markup=get_custom_keyboard()
+    )
 
-            if data.empty:
-                stocks_with_no_data.append(stock)
-                continue
-
-            yearly_high = data['High'].max()
-            yearly_low = data['Low'].min()
-            yearly_close = data['Close'][-1]
-
-            # Calculate S3 level using previous year's data
-            s1, s2, s3, r1, r2, r3 = calculate_fibonacci_pivots(yearly_high, yearly_low, yearly_close)
-
-            # Fetch data for the current year to check if S3 level was touched
-            current_year_start_date = datetime(year, 1, 1)
-            current_year_end_date = datetime(year + 1, 1, 1)
-            latest_data = yf.download(stock, start=current_year_start_date, end=current_year_end_date, progress=False)
-
-            if latest_data.empty:
-                stocks_with_no_data.append(stock)
-                continue
-
-            # Check if the stock touches S3 level in the current year
-            touched_s3 = latest_data['Low'].min() <= s3
-
-            if touched_s3:
-                stocks_touching_s3.append(stock)
-
-        except Exception as e:
-            print(f"Error processing {stock}: {e}")
-            stocks_with_no_data.append(stock)
-
-    return stocks_touching_s3, stocks_with_no_data
-
-def get_in_stock_list():
-    indian_stocks = [
-        "3MINDIA.NS",
+# Command handler for '/check_stocks'
+async def check_stocks(update: Update, context: CallbackContext):
+    # List of stocks to check
+    predefined_stock_list = [
+       "3MINDIA.NS",
 "AARTIIND.NS",
 "AAVAS.NS",
 "ABB.NS",
@@ -669,19 +643,109 @@ def get_in_stock_list():
 "ZOMATO.NS",
 "ZYDUSLIFE.NS",
 "ZYDUSWELL.NS"
-
+        # Add more stocks as needed
     ]
-    return indian_stocks
 
-# Fetch the list of Indian stocks
-indian_stocks = get_in_stock_list()
+    # Set the desired year to check which stocks touched the S3 level
+    desired_year = 2024
 
-# Set the desired year to check which stocks touched the S3 level
-desired_year = 2024
+    # Get stocks that touched S3 and those with no data for the specified year
+    stocks_touching_s3, stocks_with_no_data = check_stocks_touching_s3(predefined_stock_list, desired_year)
 
-# Get stocks that touched S3 and those with no data for the specified year
-stocks_touching_s3, stocks_with_no_data = check_stocks_touching_s3(indian_stocks, desired_year)
+    # Output results
+    result_message = (
+        f"Stocks that touched S3 in {desired_year}: {', '.join(stocks_touching_s3) if stocks_touching_s3 else 'None'}\n"
+        f"Stocks with no data in {desired_year}: {', '.join(stocks_with_no_data) if stocks_with_no_data else 'None'}"
+    )
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=result_message,
+        reply_markup=get_custom_keyboard()
+    )
 
-# Output results
-print(f"Stocks that touched S3 in {desired_year}: {stocks_touching_s3}")
-print(f"Stocks with no data in {desired_year}: {stocks_with_no_data}")
+# Command handler for '/help'
+async def help_command(update: Update, context: CallbackContext):
+    help_text = (
+        "Here are the available commands:\n"
+        "/check_stocks - Check which stocks from the predefined list touched the S3 Fibonacci level.\n"
+        "/help - Show this help message."
+    )
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=help_text,
+        reply_markup=get_custom_keyboard()
+    )
+
+# Function to calculate Fibonacci pivots
+def calculate_fibonacci_pivots(high, low, close):
+    pivot = (high + low + close) / 3
+    range_ = high - low
+    s1 = pivot - (range_ * 0.382)
+    s2 = pivot - (range_ * 0.618)
+    s3 = pivot - (range_ * 1.000)
+    r1 = pivot + (range_ * 0.382)
+    r2 = pivot + (range_ * 0.618)
+    r3 = pivot + (range_ * 1.000)
+    return s1, s2, s3, r1, r2, r3
+
+# Function to check stocks touching S3
+def check_stocks_touching_s3(stock_list, year):
+    previous_year = year - 1
+    start_date = datetime(previous_year, 1, 1)
+    end_date = datetime(year, 1, 1)
+
+    stocks_touching_s3 = []
+    stocks_with_no_data = []
+
+    for stock in stock_list:
+        try:
+            # Fetch historical data for the previous year
+            data = yf.download(stock, start=start_date, end=end_date, progress=False)
+
+            if data.empty:
+                stocks_with_no_data.append(stock)
+                continue
+
+            yearly_high = data['High'].max()
+            yearly_low = data['Low'].min()
+            yearly_close = data['Close'][-1]
+
+            # Calculate S3 level using previous year's data
+            s1, s2, s3, r1, r2, r3 = calculate_fibonacci_pivots(yearly_high, yearly_low, yearly_close)
+
+            # Fetch data for the current year to check if S3 level was touched
+            current_year_start_date = datetime(year, 1, 1)
+            current_year_end_date = datetime(year + 1, 1, 1)
+            latest_data = yf.download(stock, start=current_year_start_date, end=current_year_end_date, progress=False)
+
+            if latest_data.empty:
+                stocks_with_no_data.append(stock)
+                continue
+
+            # Check if the stock touches S3 level in the current year
+            touched_s3 = latest_data['Low'].min() <= s3
+
+            if touched_s3:
+                stocks_touching_s3.append(stock)
+
+        except Exception as e:
+            logger.error(f"Error processing {stock}: {e}")
+            stocks_with_no_data.append(stock)
+
+    return stocks_touching_s3, stocks_with_no_data
+
+async def main():
+    # Create the Application and pass it your bot's token.
+    application = Application.builder().token("7070697971:AAGPIOz5qMyI1f1MzYjrEo6pvzw1LzxBa1Q").build()
+
+    # Register command handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("check_stocks", check_stocks))
+    application.add_handler(CommandHandler("help", help_command))
+
+    # Start the Bot
+    await application.run_polling()
+
+if __name__ == '__main__':
+    # Run the bot using asyncio
+    asyncio.run(main())
